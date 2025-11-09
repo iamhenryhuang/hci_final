@@ -406,7 +406,7 @@ def main():
                 detector._draw_emotion_info(annotated_frame, emotion_result)
             
             # 顯示結果
-            cv2.imshow('情緒檢測系統 (按 q 退出)', annotated_frame)
+            cv2.imshow('emotion detection system (q: quit)', annotated_frame)
             
             # 按 'q' 退出
             if cv2.waitKey(1) & 0xFF == ord('q'):
