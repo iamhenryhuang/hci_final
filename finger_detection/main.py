@@ -7,6 +7,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from utils import hand_angle, hand_pos
+from backend import GestureTracker
 from config import (
     CAMERA_INDEX, FRAME_WIDTH, FRAME_HEIGHT,
     MODEL_COMPLEXITY, MIN_DETECTION_CONFIDENCE, MIN_TRACKING_CONFIDENCE,
@@ -17,12 +18,23 @@ from config import (
     WINDOW_NAME, TEXT_FONT_SCALE, TEXT_THICKNESS, TEXT_COLOR, TEXT_POSITION,
     WARNING_TEXT, WARNING_FONT_SCALE, WARNING_THICKNESS, WARNING_COLOR,
     WARNING_BG_COLOR, WARNING_BG_PADDING,
+    BAD_GESTURE_THRESHOLD, GESTURE_LOG_FILE,
+    FACE_CASCADE_NAME, FACE_SCALE_FACTOR, FACE_MIN_NEIGHBORS, FACE_MIN_SIZE,
+    FACE_MOSAIC_LEVEL, FACE_MOSAIC_WARNING_TEXT, FACE_MOSAIC_WARNING_COLOR,
+    FACE_MOSAIC_WARNING_FONT_SCALE, FACE_MOSAIC_WARNING_THICKNESS,
     EXIT_KEY
 )
 
 
 def main():
     """主程式入口"""
+    # 初始化後台追蹤器
+    tracker = GestureTracker(data_file=GESTURE_LOG_FILE)
+    tracker.threshold = BAD_GESTURE_THRESHOLD
+    
+    # 顯示初始統計資訊
+    stats = tracker.get_statistics()
+    
     # 初始化 MediaPipe 手部偵測工具
     mp_hands = mp.solutions.hands
 
@@ -30,12 +42,26 @@ def main():
     cap = cv2.VideoCapture(CAMERA_INDEX)
     fontFace = cv2.FONT_HERSHEY_SIMPLEX  # 文字字型
     lineType = cv2.LINE_AA               # 文字邊框
+    
+    # 初始化臉部偵測器
+    cascade_path = cv2.data.haarcascades + FACE_CASCADE_NAME
+    face_cascade = cv2.CascadeClassifier(cascade_path)
+    if face_cascade.empty():
+        print(f"警告: 無法載入臉部偵測器: {cascade_path}")
+        print("臉部馬賽克功能將無法使用")
+        face_cascade = None
 
     print("=" * 50)
     print("手勢識別系統啟動中...")
     print("=" * 50)
     print(f"攝影機: {CAMERA_INDEX}")
     print(f"解析度: {FRAME_WIDTH} x {FRAME_HEIGHT}")
+    print(f"今日不雅手勢次數: {stats['bad_gesture_count']}")
+    print(f"剩餘警告次數: {stats['remaining_warnings']}")
+    if stats['face_mosaic_enabled']:
+        print(f"狀態: 臉部馬賽克已啟用")
+    else:
+        print(f"狀態: 正常")
     print(f"按 '{EXIT_KEY}' 鍵退出程式")
     print("=" * 50)
 
@@ -58,6 +84,9 @@ def main():
         # 多幀確認（debounce）狀態
         gesture_buffer_text = ''
         gesture_buffer_count = 0
+        
+        # 追蹤是否已記錄當前的不雅手勢（避免重複計數）
+        current_gesture_logged = False
 
         while True:
             ret, img = cap.read()
@@ -110,12 +139,18 @@ def main():
                     candidate = max(set(frame_candidates), key=frame_candidates.count)
                     if candidate == gesture_buffer_text:
                         gesture_buffer_count += 1
+                        # 當達到 debounce 閾值且尚未記錄時，記錄到後台
+                        if gesture_buffer_count >= DEBOUNCE_FRAMES and not current_gesture_logged:
+                            tracker.add_bad_gesture(candidate)
+                            current_gesture_logged = True
                     else:
                         gesture_buffer_text = candidate
                         gesture_buffer_count = 1
+                        current_gesture_logged = False  # 新手勢，重置記錄標記
                 else:
                     gesture_buffer_text = ''
                     gesture_buffer_count = 0
+                    current_gesture_logged = False  # 沒有不雅手勢，重置記錄標記
 
                 # 根據 debounce 結果決定對每個偵測進行馬賽克或僅顯示文字
                 for d in detections:
@@ -219,12 +254,78 @@ def main():
                             cv2.putText(img, text, TEXT_POSITION, fontFace, 
                                       TEXT_FONT_SCALE, TEXT_COLOR, TEXT_THICKNESS, lineType)
 
+            # 如果啟用臉部馬賽克，進行臉部偵測和馬賽克處理
+            if tracker.is_face_mosaic_enabled() and face_cascade is not None:
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                faces = face_cascade.detectMultiScale(
+                    gray, 
+                    scaleFactor=FACE_SCALE_FACTOR,
+                    minNeighbors=FACE_MIN_NEIGHBORS,
+                    minSize=FACE_MIN_SIZE
+                )
+                
+                for (x, y, face_w, face_h) in faces:
+                    # 製作臉部馬賽克
+                    face_mosaic = img[y:y+face_h, x:x+face_w]
+                    level = FACE_MOSAIC_LEVEL
+                    mh = max(1, int(face_h / level))
+                    mw = max(1, int(face_w / level))
+                    
+                    try:
+                        face_mosaic = cv2.resize(face_mosaic, (mw, mh), interpolation=cv2.INTER_LINEAR)
+                        face_mosaic = cv2.resize(face_mosaic, (face_w, face_h), interpolation=cv2.INTER_NEAREST)
+                        img[y:y+face_h, x:x+face_w] = face_mosaic
+                    except Exception:
+                        pass
+                    
+                    # 在臉部馬賽克上方顯示警告文字
+                    warning_txt = FACE_MOSAIC_WARNING_TEXT
+                    (tw, th), _ = cv2.getTextSize(
+                        warning_txt, fontFace, 
+                        FACE_MOSAIC_WARNING_FONT_SCALE, 
+                        FACE_MOSAIC_WARNING_THICKNESS
+                    )
+                    txt_x = x
+                    txt_y = y - 10
+                    # 黑色底
+                    cv2.rectangle(
+                        img, 
+                        (txt_x - 5, txt_y - th - 5),
+                        (txt_x + tw + 5, txt_y + 5),
+                        (0, 0, 0), 
+                        -1
+                    )
+                    # 紅色文字
+                    cv2.putText(
+                        img, warning_txt, (txt_x, txt_y), 
+                        fontFace, FACE_MOSAIC_WARNING_FONT_SCALE,
+                        FACE_MOSAIC_WARNING_COLOR, 
+                        FACE_MOSAIC_WARNING_THICKNESS, 
+                        lineType
+                    )
+            
+            # 在畫面上顯示統計資訊
+            stats = tracker.get_statistics()
+            info_text = f"Bad Gestures: {stats['bad_gesture_count']}/{BAD_GESTURE_THRESHOLD}"
+            cv2.putText(img, info_text, (10, 30), fontFace, 0.7, (255, 255, 0), 2, lineType)
+            
+            if stats['face_mosaic_enabled']:
+                status_text = "Status: FACE MOSAIC ON"
+                status_color = (0, 0, 255)  # 紅色
+            else:
+                status_text = f"Status: Normal ({stats['remaining_warnings']} warnings left)"
+                status_color = (0, 255, 0)  # 綠色
+            cv2.putText(img, status_text, (10, 60), fontFace, 0.6, status_color, 2, lineType)
+            
             # 顯示影像
             cv2.imshow(WINDOW_NAME, img)
 
             # 按退出鍵退出
             if cv2.waitKey(5) == ord(EXIT_KEY):
                 print("\n程式結束")
+                # 重置計數器
+                print("重置計數器...")
+                tracker.reset()
                 break
 
     cap.release()

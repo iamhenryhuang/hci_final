@@ -65,6 +65,31 @@ WARNING_BG_PADDING = 6
 # 文字顯示位置
 TEXT_POSITION = (30, 120)
 
+# ==================== 後台追蹤設置 ====================
+# 觸發臉部馬賽克的不雅手勢次數閾值
+BAD_GESTURE_THRESHOLD = 5
+
+# 手勢追蹤記錄檔案
+GESTURE_LOG_FILE = 'gesture_log.json'
+
+# ==================== 臉部偵測與馬賽克設置 ====================
+# 臉部偵測 Haar Cascade 檔案名稱
+FACE_CASCADE_NAME = 'haarcascade_frontalface_default.xml'
+
+# 臉部偵測參數
+FACE_SCALE_FACTOR = 1.1  # 偵測縮放比例
+FACE_MIN_NEIGHBORS = 5    # 最小鄰居數（越大越嚴格）
+FACE_MIN_SIZE = (30, 30)  # 最小臉部尺寸
+
+# 臉部馬賽克效果等級（數字越大馬賽克效果越粗糙）
+FACE_MOSAIC_LEVEL = 15
+
+# 臉部馬賽克警告文字
+FACE_MOSAIC_WARNING_TEXT = 'FACE BLOCKED!'
+FACE_MOSAIC_WARNING_COLOR = (0, 0, 255)  # 紅色
+FACE_MOSAIC_WARNING_FONT_SCALE = 0.8
+FACE_MOSAIC_WARNING_THICKNESS = 2
+
 # ==================== 其他設置 ====================
 # 退出按鍵
 EXIT_KEY = 'q'
