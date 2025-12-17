@@ -3,7 +3,6 @@
 負責載入 Haar Cascade 模型並進行臉部偵測
 """
 
-
 import cv2
 import mediapipe as mp
 from config import (
