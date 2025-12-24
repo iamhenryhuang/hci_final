@@ -92,3 +92,9 @@ Edit `finger_detection/config.py` to customize:
 - 卓俊瑋
 - 劉宇盛
 - 徐鐽睿
+
+## Acknowledgments
+- NCCU Wen-Hung Liao
+
+## References
+https://ai.google.dev/edge/mediapipe/solutions/vision/gesture_recognizer?hl=zh-tw
