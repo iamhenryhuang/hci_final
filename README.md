@@ -1,30 +1,28 @@
 # Hand Gesture Recognition System
 
-A real-time hand gesture recognition system built with MediaPipe and OpenCV. It detects gestures through your webcam and automatically blurs inappropriate gestures. After too many violations, it'll also blur your face.
+Real-time hand gesture recognition using MediaPipe and OpenCV. Detects gestures through your webcam and automatically blurs inappropriate ones. After too many violations, it blurs your face and eventually shuts down the stream.
 
-## What it does
+## Features
 
-- Recognizes hand gestures in real-time (thumbs up, thumbs down, OK sign, rock, fist, etc.)
-- Automatically blurs inappropriate gestures
-- Keeps track of violations - after 5 bad gestures, it blurs your face too
-- After 10 violations, the stream pauses and shows a black screen
+- Real-time gesture recognition
+- Automatic blurring of inappropriate gestures
+- Multi-level penalty system:
+  - **Normal**: No penalties
+  - **High Warning** (5+ violations): Warning beep + face blur
+  - **Shutdown** (10+ violations): Black screen with "STREAM PAUSED"
+- Tracks violations daily, auto-resets each day
+- Debounce filtering to reduce false detections
 
-## Supported gestures
-
-**Normal gestures:**
-- `good` - Thumbs up
-- `ROCK!` - Rock hand sign
-- `fist` - Fist
-
+## Supported Gestures
 **Blocked gestures (will be blurred):**
 - `bad!!!` - Thumbs down
 - `no!!!` - Middle finger
-- `thumb_mid_pinky` - Thumb + middle + pinky
-- `ok` - OK sign
+- `thumb_mid_pinky` - Extended thumb, middle, and pinky (offensive gesture)
+- `ok` - OK sign (white supremacist/racist gesture)
 
 ## Setup
 
-Make sure you have Python 3.8 or higher:
+Requires Python 3.8+:
 
 ```bash
 python --version
@@ -36,50 +34,61 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Main dependencies:
+Key dependencies:
 - `mediapipe` - Hand tracking
 - `opencv-python` - Image processing
-- `numpy` - Number crunching
+- `numpy` - Numeric operations
 
 ## Usage
 
-Navigate to the `finger_detection` folder and run:
+Go to the `finger_detection` folder and run:
 
 ```bash
 cd finger_detection
 python main.py
 ```
 
-The camera will start automatically. Inappropriate gestures get blurred, and the violation count shows in the top-left corner. Press `q` to quit.
+The camera starts automatically. Inappropriate gestures get blurred immediately. The violation count shows in the top-left corner. Press `q` to quit (resets counter on exit).
 
-## Project structure
+## Project Structure
 
 ```
 hci_final_code/
 ├── finger_detection/          # Main gesture recognition code
 │   ├── main.py                # Entry point
-│   ├── gesture_tracker.py     # Tracks gesture counts
+│   ├── gesture_tracker.py     # Tracks gesture counts and daily logs
 │   ├── gesture_recognizer.py  # Gesture recognition logic
-│   ├── visualizer.py          # Display and blur effects
-│   ├── face_detector.py       # Face detection
+│   ├── visualizer.py          # Display, blur effects, and stats
+│   ├── face_detector.py       # Face detection using MediaPipe
 │   ├── geometry.py            # Finger angle calculations
-│   └── config.py              # Settings and parameters
-├── face_detection/            # Face detection module
+│   └── config.py              # All settings and parameters
+├── face_detection/            # Face detection utilities
 │   └── face_mosaic.py
 └── requirements.txt           # Dependencies
 ```
 
 ## Configuration
 
-All parameters can be tweaked in `finger_detection/config.py`:
+Edit `finger_detection/config.py` to customize:
 
 - `CAMERA_INDEX` - Camera device number (default: 0)
-- `BAD_GESTURE_THRESHOLD` - Number of violations before face blur kicks in (default: 5)
-- `DEBOUNCE_FRAMES` - Frames required to confirm a gesture (default: 3)
-- Other MediaPipe and display settings
+- `BAD_GESTURE_THRESHOLD` - Violations before face blur (default: 5)
+- `DEBOUNCE_FRAMES` - Frames needed to confirm gesture (default: 3)
+- `BLACKLIST_GESTURES` - Which gestures to block
+- MediaPipe detection/tracking confidence thresholds
+- Mosaic blur levels and display settings
 
 ## Notes
 
-- Daily violation counts are logged to `gesture_log.json`
-- Counters reset automatically each day
-- Pressing `q` resets the counter when you exit
+- Daily violation counts saved to `gesture_log.json`
+- Counters reset automatically each day at midnight
+- Pressing `q` resets counter when exiting
+- Warning beep works on Windows (winsound), silently ignored on other platforms
+- Shutdown mode displays black screen with "STREAM PAUSED" and stops all detection
+
+## Contributors
+
+- 黃柏淵
+- 卓俊瑋
+- 劉宇盛
+- 徐鐽睿
